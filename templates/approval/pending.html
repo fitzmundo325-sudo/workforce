@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Pending My Approval{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-check2-square me-2"></i>Pending My Approval</h2>
+</div>
+<div class="card">
+    <div class="card-body p-0">
+        {% if requests %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Type</th>
+                        <th>Branch</th>
+                        <th>Description</th>
+                        <th>Requester</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for req_type, req in requests %}
+                    <tr>
+                        <td class="fw-semibold">{{ req.id }}</td>
+                        <td>
+                            {% if req_type == 'Work' %}
+                                <span class="badge bg-primary">Work</span>
+                            {% elif req_type == 'Manpower' %}
+                                <span class="badge bg-success">Manpower</span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark">Supply</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ req.store_branch }}</td>
+                        <td class="text-truncate" style="max-width: 250px;">
+                            {% if req_type == 'Work' %}
+                                {{ req.description[:80] }}{% if req.description|length > 80 %}...{% endif %}
+                            {% elif req_type == 'Manpower' %}
+                                {{ req.reason[:80] }}{% if req.reason|length > 80 %}...{% endif %}
+                            {% else %}
+                                {{ req.purpose[:80] }}{% if req.purpose|length > 80 %}...{% endif %}
+                            {% endif %}
+                        </td>
+                        <td>{{ req.requester.full_name }}</td>
+                        <td>
+                            {% if req.status == 'pending_manager' %}
+                                <span class="badge bg-warning text-dark">Pending Manager</span>
+                            {% elif req.status == 'pending_cm' %}
+                                <span class="badge bg-info text-dark">Pending CM</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted small">{{ req.created_at.strftime('%b %d, %Y') if req.created_at }}</td>
+                        <td>
+                            {% if req_type == 'Work' %}
+                                <a href="{{ url_for('work.detail', request_id=req.id) }}" class="btn btn-sm btn-outline-primary">Review</a>
+                            {% elif req_type == 'Manpower' %}
+                                <a href="{{ url_for('manpower.detail', request_id=req.id) }}" class="btn btn-sm btn-outline-success">Review</a>
+                            {% else %}
+                                <a href="{{ url_for('supply.detail', request_id=req.id) }}" class="btn btn-sm btn-outline-warning">Review</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon"><i class="bi bi-check2-circle"></i></div>
+            <p>No pending approvals.</p>
+            <p>All requests have been reviewed.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

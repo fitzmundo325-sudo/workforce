@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+{% block title %}Supply Request #{{ req.id }} - Detail{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  .tracking-map { height: 280px; border-radius: 12px; border: 1px solid #e2e8f0; z-index: 0; }
+  .tracking-timeline { position: relative; padding-left: 28px; }
+  .tracking-timeline::before {
+    content: ''; position: absolute; left: 10px; top: 8px; bottom: 8px;
+    width: 2px; background: #e2e8f0;
+  }
+  .tracking-event { position: relative; padding-bottom: 18px; }
+  .tracking-event:last-child { padding-bottom: 0; }
+  .tracking-dot {
+    position: absolute; left: -22px; top: 4px;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: #94a3b8; border: 2px solid #fff; box-shadow: 0 0 0 2px #94a3b8;
+  }
+  .tracking-event:last-child .tracking-dot {
+    background: #6366f1; box-shadow: 0 0 0 2px #6366f1, 0 0 0 4px rgba(99,102,241,0.2);
+  }
+  .tracking-event-status { font-weight: 600; font-size: 0.9rem; color: #1e293b; }
+  .tracking-event-meta { font-size: 0.8rem; color: #64748b; margin-top: 2px; }
+  .tracking-event-notes { font-size: 0.85rem; color: #475569; margin-top: 4px; }
+  .tracking-current-status { display: inline-flex; align-items: center; gap: 6px; padding: 6px 16px; border-radius: 999px; font-size: 0.85rem; font-weight: 600; }
+  .tracking-id-badge { font-family: 'Inter', monospace; font-size: 0.9rem; font-weight: 700; color: #6366f1; letter-spacing: 0.02em; }
+</style>
+
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-box-seam me-2"></i>Supply Request #{{ req.id }}</span>
+                <span class="badge bg-{{ 'success' if req.status == 'approved' else 'danger' if req.status == 'rejected' else 'warning' if req.status == 'pending_manager' else 'info' if req.status == 'pending_cm' else 'secondary' }} fs-6 fw-normal">{{ req.status_display() }}</span>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <table class="table table-borderless">
+                            <tr><td class="detail-label" style="width: 140px;">Store Branch</td><td class="detail-value">{{ req.store_branch }}</td></tr>
+                            <tr><td class="detail-label">Manager</td><td class="detail-value">{{ req.manager_name }}</td></tr>
+                            <tr><td class="detail-label">Cluster Manager</td><td class="detail-value">{{ req.cluster_manager_name }}</td></tr>
+                            <tr><td class="detail-label">Date Created</td><td class="detail-value">{{ req.created_at.strftime('%b %d, %Y %I:%M %p') if req.created_at }}</td></tr>
+                        </table>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <div class="detail-label mb-2">Purpose</div>
+                    <div class="description-box">{{ req.purpose }}</div>
+                </div>
+                <div class="mb-4">
+                    <div class="detail-label mb-2">Items Requested</div>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Category</th>
+                                    <th>Item</th>
+                                    <th>Quantity</th>
+                                    <th>Unit</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in req.get_items() %}
+                                <tr>
+                                    <td>{{ item.category }}</td>
+                                    <td>{{ item.item_name }}</td>
+                                    <td>{{ item.quantity }}</td>
+                                    <td>{{ item.unit }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {% if req.tracking_id %}
+                <div class="mb-4">
+                    <div class="detail-label mb-3"><i class="bi bi-truck me-1"></i>Shipment Tracking</div>
+                    <div class="card bg-light border-0">
+                        <div class="card-body p-3">
+                            <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                                <div>
+                                    <span class="text-muted small d-block">Tracking ID</span>
+                                    <span class="tracking-id-badge">{{ req.tracking_id }}</span>
+                                </div>
+                                <div>
+                                    <span class="text-muted small d-block">Current Status</span>
+                                    {% set tc = tracking_events[-1] if tracking_events else None %}
+                                    {% if tc %}
+                                    <span class="tracking-current-status" style="background: {% if tc.status == 'Delivered' %}#dcfce7;color:#166534{% elif tc.status == 'Failed Delivery Attempt' or tc.status == 'Return to Sender' %}#fee2e2;color:#b91c1c{% elif tc.status == 'Out for Delivery' %}#fef3c7;color:#92400e{% else %}#eef2ff;color:#4f46e5{% endif %}">
+                                        <span style="width:8px;height:8px;border-radius:50%;background:{% if tc.status == 'Delivered' %}#16a34a{% elif tc.status == 'Failed Delivery Attempt' or tc.status == 'Return to Sender' %}#dc2626{% elif tc.status == 'Out for Delivery' %}#d97706{% else %}#6366f1{% endif %};display:inline-block;"></span>
+                                        {{ tc.status }}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-7">
+                                    <div id="trackingMap" class="tracking-map"></div>
+                                </div>
+                                <div class="col-md-5">
+                                    <div class="tracking-timeline" style="max-height:280px;overflow-y:auto;">
+                                        {% for ev in tracking_events %}
+                                        <div class="tracking-event">
+                                            <div class="tracking-dot"></div>
+                                            <div class="tracking-event-status">{{ ev.status }}</div>
+                                            <div class="tracking-event-meta">
+                                                {% if ev.location %}{{ ev.location }} &middot; {% endif %}
+                                                {{ ev.created_at.strftime('%b %d, %I:%M %p') if ev.created_at }}
+                                                {% if ev.updated_by != 'System' %}&middot; {{ ev.updated_by }}{% endif %}
+                                            </div>
+                                            {% if ev.notes %}
+                                            <div class="tracking-event-notes">{{ ev.notes }}</div>
+                                            {% endif %}
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {% if current_user.role in ('admin', 'manager') %}
+                <div class="mb-4">
+                    <div class="detail-label mb-2"><i class="bi bi-pencil-square me-1"></i>Update Tracking</div>
+                    <div class="card border-0 bg-light">
+                        <div class="card-body p-3">
+                            <form method="POST" action="{{ url_for('supply.update_tracking', request_id=req.id) }}" class="row g-2">
+                                <div class="col-md-4">
+                                    <select name="status" class="form-select" required>
+                                        <option value="">-- Select Status --</option>
+                                        {% for s in tracking_statuses %}
+                                        <option value="{{ s }}" {% if s == req.tracking_status %}selected{% endif %}>{{ s }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <input type="text" name="location" class="form-control" placeholder="Location (e.g. Tacloban City)" value="">
+                                </div>
+                                <div class="col-md-4">
+                                    <input type="text" name="notes" class="form-control" placeholder="Notes (optional)" value="">
+                                </div>
+                                <div class="col-12 text-end">
+                                    <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-arrow-up-circle me-1"></i>Update Tracking</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                {% elif req.status == 'approved' and current_user.role in ('admin', 'manager') %}
+                <div class="mb-4">
+                    <div class="detail-label mb-2"><i class="bi bi-truck me-1"></i>Shipment Tracking</div>
+                    <div class="card border-0 bg-light">
+                        <div class="card-body p-3 d-flex align-items-center justify-content-between flex-wrap gap-3">
+                            <div>
+                                <div class="fw-semibold">Tracking has not been started yet.</div>
+                                <div class="text-muted small">Create a tracking ID and initial shipment timeline for this approved supply request.</div>
+                            </div>
+                            <form method="POST" action="{{ url_for('supply.start_tracking', request_id=req.id) }}">
+                                <button type="submit" class="btn btn-primary btn-sm">
+                                    <i class="bi bi-truck me-1"></i>Start Tracking
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="row mb-4">
+                    <div class="col-md-6 text-center">
+                        <div class="detail-label mb-2">Manager Signature</div>
+                        {% if req.manager_signature %}
+                            <img src="{{ url_for('static', filename='uploads/signatures/' + req.manager_signature) }}"
+                                 class="border rounded" style="max-height: 100px;">
+                        {% else %}
+                            <p class="text-muted small">Not signed</p>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6 text-center">
+                        <div class="detail-label mb-2">Cluster Manager Signature</div>
+                        {% if req.cm_signature %}
+                            <img src="{{ url_for('static', filename='uploads/signatures/' + req.cm_signature) }}"
+                                 class="border rounded" style="max-height: 100px;">
+                        {% else %}
+                            <p class="text-muted small">Not signed</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if approval_logs %}
+                <div class="mb-4">
+                    <div class="detail-label mb-2">Approval History</div>
+                    <div class="approval-timeline">
+                        {% for log in approval_logs %}
+                        <div class="timeline-item {{ log.action }}">
+                            <div class="flex-shrink-0">
+                                {% if log.action == 'approved' %}
+                                    <span class="badge bg-success"><i class="bi bi-check-lg"></i> APPROVED</span>
+                                {% else %}
+                                    <span class="badge bg-danger"><i class="bi bi-x-lg"></i> REJECTED</span>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <strong>{{ log.approver.full_name }}</strong>
+                                <span class="text-muted small">({{ log.created_at.strftime('%b %d, %Y %I:%M %p') if log.created_at }})</span>
+                                {% if log.comments %}
+                                <br><em class="small">{{ log.comments }}</em>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                {% if can_approve %}
+                <div class="review-card mb-4">
+                    <div class="review-header"><i class="bi bi-clipboard-check me-2"></i>Review This Request</div>
+                    <div class="review-body">
+                        <form method="POST" action="{{ url_for('approval.approve') }}" class="d-inline">
+                            <input type="hidden" name="request_type" value="supply">
+                            <input type="hidden" name="request_id" value="{{ req.id }}">
+                            <div class="mb-2">
+                                <textarea name="comments" class="form-control" rows="2" placeholder="Optional comments..."></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-success me-2" onclick="return confirm('Approve this request?')">
+                                <i class="bi bi-check-circle me-1"></i> Approve
+                            </button>
+                        </form>
+                        <form method="POST" action="{{ url_for('approval.reject') }}" class="d-inline">
+                            <input type="hidden" name="request_type" value="supply">
+                            <input type="hidden" name="request_id" value="{{ req.id }}">
+                            <button type="submit" class="btn btn-danger" onclick="return confirm('Reject this request?')">
+                                <i class="bi bi-x-circle me-1"></i> Reject
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                {% endif %}
+                <hr class="section-divider">
+                <div class="d-flex justify-content-between">
+                    <a href="{{ url_for('supply.my_requests') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back to My Requests</a>
+                    <a href="{{ url_for('dashboard.index') }}" class="btn btn-warning text-dark"><i class="bi bi-speedometer2 me-1"></i>Dashboard</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+{% if req.tracking_id and tracking_events %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var map = L.map('trackingMap', { zoomControl: true }).setView([11.0, 125.0], 6);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+
+    var events = [
+        {% for ev in tracking_events %}
+        {% if ev.latitude and ev.longitude %}
+        {
+            lat: {{ ev.latitude }},
+            lng: {{ ev.longitude }},
+            status: '{{ ev.status }}',
+            location: '{{ ev.location|replace("'", "\\'") }}',
+            notes: '{{ ev.notes|replace("'", "\\'")|replace("\n", "\\n") }}',
+            time: '{{ ev.created_at.strftime("%b %d, %I:%M %p") if ev.created_at }}',
+            updatedBy: '{{ ev.updated_by }}',
+            isLast: {{ 1 if loop.last else 0 }}
+        },
+        {% endif %}
+        {% endfor %}
+    ];
+
+    if (events.length === 0) {
+        {% if req.store_branch %}
+        var originLat = 0, originLng = 0;
+        {% endif %}
+        map.setView([11.0, 125.0], 6);
+        return;
+    }
+
+    var markers = [];
+    var bounds = [];
+
+    events.forEach(function(ev, idx) {
+        var color = '#6366f1';
+        if (ev.status === 'Delivered') color = '#16a34a';
+        else if (ev.status === 'Failed Delivery Attempt' || ev.status === 'Return to Sender') color = '#dc2626';
+        else if (ev.status === 'Out for Delivery') color = '#d97706';
+
+        var iconSize = ev.isLast ? [16, 16] : [12, 12];
+        var markerIcon = L.divIcon({
+            className: 'custom-marker',
+            html: '<div style="width:' + iconSize[0] + 'px;height:' + iconSize[1] + 'px;background:' + color + ';border:2px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);' + (ev.isLast ? 'animation:pulse 2s infinite;' : '') + '"></div>',
+            iconSize: iconSize,
+            iconAnchor: [iconSize[0]/2, iconSize[1]/2],
+        });
+
+        var popup = '<strong>' + ev.status + '</strong>';
+        if (ev.location) popup += '<br>' + ev.location;
+        if (ev.time) popup += '<br><small>' + ev.time + '</small>';
+        if (ev.notes) popup += '<br><em>' + ev.notes + '</em>';
+        if (ev.updatedBy && ev.updatedBy !== 'System') popup += '<br><small>by ' + ev.updatedBy + '</small>';
+
+        var marker = L.marker([ev.lat, ev.lng], { icon: markerIcon }).addTo(map);
+        marker.bindPopup(popup);
+        markers.push(marker);
+        bounds.push([ev.lat, ev.lng]);
+    });
+
+    if (bounds.length > 0) {
+        map.fitBounds(bounds, { padding: [40, 40] });
+    }
+});
+</script>
+<style>
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(99,102,241,0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(99,102,241,0); }
+    100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); }
+}
+</style>
+{% endif %}
+{% endblock %}

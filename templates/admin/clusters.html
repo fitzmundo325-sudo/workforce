@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Clusters{% endblock %}
+{% block top_title %}Clusters{% endblock %}
+{% block content %}
+<header class="management-topbar">
+    <div class="breadcrumb-line">
+        <span>Pages</span>
+        <i class="bi bi-slash"></i>
+        <strong>Clusters</strong>
+    </div>
+    <button type="button" class="btn-management-primary" data-bs-toggle="modal" data-bs-target="#newClusterModal">
+        <i class="bi bi-plus-lg"></i>
+        <span>New Cluster</span>
+    </button>
+</header>
+
+<div class="management-page-shell">
+    <section class="management-heading">
+        <div>
+            <h2>Clusters</h2>
+            <p>Manage store clusters and assign cluster managers.</p>
+        </div>
+        <form class="management-search" method="get" action="{{ url_for('admin.clusters') }}">
+            <i class="bi bi-search"></i>
+            <input type="search" name="q" value="{{ q }}" placeholder="Search clusters..." aria-label="Search clusters">
+        </form>
+    </section>
+
+    {% if q %}
+    <div class="active-filter-row">
+        <span class="filter-pill"><i class="bi bi-search"></i>{{ q }}</span>
+        <a class="admin-table-link" href="{{ url_for('admin.clusters') }}">Clear filters</a>
+    </div>
+    {% endif %}
+
+    <div class="cluster-card-grid">
+        {% for cluster in clusters %}
+        <article class="cluster-card">
+            <div class="cluster-card-top">
+                <div class="cluster-icon">
+                    <i class="bi bi-grid"></i>
+                </div>
+                <div class="cluster-card-actions">
+                    <span class="cluster-store-count">{{ cluster.store_count }} stores</span>
+                    <a class="cluster-view-link" href="{{ url_for('admin.users', cluster=cluster.filter_value) }}">
+                        <i class="bi bi-eye"></i>
+                        <span>View Data</span>
+                    </a>
+                </div>
+            </div>
+            <div class="cluster-card-body">
+                <div class="cluster-card-title">
+                    <h3>{{ cluster.name }}</h3>
+                    <p>{{ cluster.description or 'No description' }}</p>
+                </div>
+                <div class="cluster-manager-row">
+                    <div class="cluster-manager-avatar">{{ cluster.initial if cluster.manager else '?' }}</div>
+                    <div>
+                        <span>Cluster Manager</span>
+                        <strong>{{ cluster.manager or 'Unassigned' }}</strong>
+                    </div>
+                </div>
+                <div class="cluster-added">Added {{ cluster.added.strftime('%b %d, %Y') if cluster.added else '-' }}</div>
+            </div>
+            <div class="cluster-card-footer">
+                <a href="{{ url_for('admin.stores', cluster=cluster.filter_value) }}">Manage Stores</a>
+            </div>
+        </article>
+        {% else %}
+        <div class="management-empty">
+            <div class="empty-state-icon"><i class="bi bi-diagram-3"></i></div>
+            <p>No clusters found.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="modal fade" id="newClusterModal" tabindex="-1" aria-labelledby="newClusterModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content management-modal">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title" id="newClusterModalLabel">Add New Cluster</h5>
+                    <p class="modal-subtitle">Create a new cluster and assign a manager</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="get" action="{{ url_for('admin.clusters') }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="clusterName" class="form-label">Cluster Name <span class="text-danger">*</span></label>
+                        <input type="text" id="clusterName" name="name" class="form-control" placeholder="e.g., Cluster 1">
+                    </div>
+                    <div class="mb-3">
+                        <label for="clusterDescription" class="form-label">Description</label>
+                        <textarea id="clusterDescription" class="form-control" rows="2" placeholder="Brief description of this cluster"></textarea>
+                    </div>
+                    <div>
+                        <label for="clusterManager" class="form-label">Cluster Manager</label>
+                        <select id="clusterManager" class="form-select">
+                            <option value="">Select a manager</option>
+                            {% for manager in managers %}
+                            <option value="{{ manager.id }}">{{ manager.full_name }} ({{ manager.username }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Cluster</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

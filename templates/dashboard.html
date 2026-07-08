@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - Workforce Request System{% endblock %}
+{% block content %}
+
+<div class="welcome-card mb-4">
+  <div class="welcome-decor"></div>
+  <div class="welcome-content">
+    <div class="welcome-text">
+      <div>
+        <span class="welcome-greeting">Good to see you,</span>
+        <h2 class="welcome-name">{{ current_user.full_name }}</h2>
+      </div>
+      <div class="welcome-meta">
+        <span class="welcome-badge"><i class="bi bi-shop me-1"></i>{{ current_user.store_branch }}</span>
+        <span class="welcome-badge"><i class="bi bi-person-badge me-1"></i>{{ current_user.role | replace('_', ' ') | title }}</span>
+      </div>
+    </div>
+    <div class="welcome-actions">
+      <a href="{{ url_for('work.new') }}" class="welcome-btn"><i class="bi bi-tools"></i><span>Work</span></a>
+      <a href="{{ url_for('manpower.new') }}" class="welcome-btn"><i class="bi bi-people"></i><span>Manpower</span></a>
+      <a href="{{ url_for('supply.new') }}" class="welcome-btn"><i class="bi bi-box-seam"></i><span>Supply</span></a>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-3 col-6">
+    <div class="stat-card">
+      <div class="stat-icon-circle stat-icon-work"><i class="bi bi-tools"></i></div>
+      <div class="stat-body">
+        <span class="stat-label">Work Requests</span>
+        <span class="stat-value">{{ work_count }}</span>
+        <a href="{{ url_for('work.my_requests') }}" class="stat-link">View all <i class="bi bi-arrow-right"></i></a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="stat-card">
+      <div class="stat-icon-circle stat-icon-manpower"><i class="bi bi-people"></i></div>
+      <div class="stat-body">
+        <span class="stat-label">Manpower Requests</span>
+        <span class="stat-value">{{ manpower_count }}</span>
+        <a href="{{ url_for('manpower.my_requests') }}" class="stat-link">View all <i class="bi bi-arrow-right"></i></a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="stat-card">
+      <div class="stat-icon-circle stat-icon-supply"><i class="bi bi-box-seam"></i></div>
+      <div class="stat-body">
+        <span class="stat-label">Supply Requests</span>
+        <span class="stat-value">{{ supply_count }}</span>
+        <a href="{{ url_for('supply.my_requests') }}" class="stat-link">View all <i class="bi bi-arrow-right"></i></a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="stat-card">
+      <div class="stat-icon-circle stat-icon-pending"><i class="bi bi-clock-history"></i></div>
+      <div class="stat-body">
+        <span class="stat-label">Pending (Mine)</span>
+        <span class="stat-value">{{ my_pending_count }}</span>
+        <a href="{{ url_for('work.my_requests') }}" class="stat-link">View all <i class="bi bi-arrow-right"></i></a>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if can_see_approvals %}
+<div class="row g-3 mb-4">
+  <div class="col-12">
+    <div class="approval-banner">
+      <div class="approval-banner-icon"><i class="bi bi-check2-square"></i></div>
+      <div class="approval-banner-text">
+        <strong>Pending My Approval</strong>
+        <span>Requests awaiting your review</span>
+      </div>
+      <div class="approval-banner-count">{{ approval_pending_count }}</div>
+      <a href="{{ url_for('approval.pending') }}" class="approval-banner-btn">Review now <i class="bi bi-arrow-right ms-1"></i></a>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="row g-3">
+  <div class="col-12">
+    <div class="content-card">
+      <div class="content-card-header">
+        <span><i class="bi bi-clock-history"></i> Recent Requests</span>
+        {% if recent_requests %}
+        <a href="{{ url_for('work.my_requests') }}" class="content-card-link">View all <i class="bi bi-arrow-right"></i></a>
+        {% endif %}
+      </div>
+      <div class="content-card-body p-0">
+        {% if recent_requests %}
+        <div class="request-list">
+          {% for req_type, req in recent_requests %}
+          <a href="
+            {% if req_type == 'Work' %}{{ url_for('work.detail', request_id=req.id) }}
+            {% elif req_type == 'Manpower' %}{{ url_for('manpower.detail', request_id=req.id) }}
+            {% else %}{{ url_for('supply.detail', request_id=req.id) }}{% endif %}"
+            class="request-item">
+            <div class="request-item-left">
+              <div class="request-type-badge request-type-{{ req_type|lower }}">
+                {% if req_type == 'Work' %}<i class="bi bi-tools"></i>
+                {% elif req_type == 'Manpower' %}<i class="bi bi-people"></i>
+                {% else %}<i class="bi bi-box-seam"></i>{% endif %}
+              </div>
+              <div class="request-item-info">
+                <span class="request-item-title">{{ req_type }} Request #{{ req.id }}</span>
+                <span class="request-item-meta">{{ req.store_branch }} · {{ req.created_at.strftime('%b %d') if req.created_at }}</span>
+              </div>
+            </div>
+            <div class="request-item-right">
+              <span class="status-badge status-{{ req.status }}">
+                {% if req.status == 'draft' %}Draft
+                {% elif req.status == 'pending_manager' %}Pending
+                {% elif req.status == 'pending_cm' %}Pending CM
+                {% elif req.status == 'approved' %}Approved
+                {% elif req.status == 'rejected' %}Rejected{% endif %}
+              </span>
+              <i class="bi bi-chevron-right request-chevron"></i>
+            </div>
+          </a>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+          <div class="empty-state-icon"><i class="bi bi-inbox"></i></div>
+          <p>No requests yet.</p>
+          <p>Use the <strong>New Request</strong> menu to create one.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

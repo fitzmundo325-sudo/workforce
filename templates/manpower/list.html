@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h2><i class="bi bi-people me-2"></i>{{ title }}</h2>
+    </div>
+    <div>
+        <a href="{{ url_for('manpower.new') }}" class="btn btn-success"><i class="bi bi-plus-lg me-1"></i>New Manpower Request</a>
+    </div>
+</div>
+<div class="card">
+    <div class="card-body p-0">
+        {% if requests %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Branch</th>
+                        <th>Position</th>
+                        <th>Needed</th>
+                        <th>Name Type</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for req in requests %}
+                    <tr>
+                        <td class="fw-semibold">{{ req.id }}</td>
+                        <td>{{ req.store_branch }}</td>
+                        <td>{{ req.position_title }}</td>
+                        <td>{{ req.employees_needed }}</td>
+                        <td>{{ req.name_type or 'N/A' }}</td>
+                        <td>
+                            {% if req.status == 'draft' %}
+                                <span class="badge bg-secondary">Draft</span>
+                            {% elif req.status == 'pending_manager' %}
+                                <span class="badge bg-warning text-dark">Pending Manager</span>
+                            {% elif req.status == 'pending_cm' %}
+                                <span class="badge bg-info text-dark">Pending CM</span>
+                            {% elif req.status == 'approved' %}
+                                <span class="badge bg-success">Approved</span>
+                            {% elif req.status == 'rejected' %}
+                                <span class="badge bg-danger">Rejected</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted small">{{ req.created_at.strftime('%b %d, %Y') if req.created_at }}</td>
+                        <td>
+                            <a href="{{ url_for('manpower.detail', request_id=req.id) }}" class="btn btn-sm btn-outline-success">View</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon"><i class="bi bi-people"></i></div>
+            <p>No manpower requests yet.</p>
+            <p>Create your first manpower request to get started.</p>
+            <a href="{{ url_for('manpower.new') }}" class="btn btn-success"><i class="bi bi-plus-lg me-1"></i>Create Your First Request</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

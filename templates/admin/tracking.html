@@ -1,0 +1,296 @@
+{% extends "base.html" %}
+{% block title %}Supply Tracking Admin{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+    .admin-tracking-map {
+        height: 360px;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        z-index: 0;
+    }
+
+    .admin-tracking-map-empty {
+        height: 360px;
+        border: 1px dashed #cbd5e1;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #64748b;
+        background: #f8fafc;
+        text-align: center;
+        padding: 1rem;
+    }
+
+    .tracking-map-marker {
+        background: none !important;
+        border: none !important;
+    }
+</style>
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h2><i class="bi bi-truck me-2"></i>Supply Tracking</h2>
+        <div class="text-muted">Manage approved supply request shipment updates.</div>
+    </div>
+    <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-shield-lock me-1"></i>Admin Dashboard
+    </a>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="stat-card">
+            <div class="stat-icon-circle stat-icon-supply"><i class="bi bi-box-seam"></i></div>
+            <div class="stat-body">
+                <span class="stat-label">Approved Supply</span>
+                <span class="stat-value">{{ tracking_summary.approved }}</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="stat-card">
+            <div class="stat-icon-circle stat-icon-pending"><i class="bi bi-hourglass-split"></i></div>
+            <div class="stat-body">
+                <span class="stat-label">Not Started</span>
+                <span class="stat-value">{{ tracking_summary.not_started }}</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="stat-card">
+            <div class="stat-icon-circle stat-icon-work"><i class="bi bi-truck"></i></div>
+            <div class="stat-body">
+                <span class="stat-label">Active Tracking</span>
+                <span class="stat-value">{{ tracking_summary.active }}</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="stat-card">
+            <div class="stat-icon-circle stat-icon-manpower"><i class="bi bi-check2-circle"></i></div>
+            <div class="stat-body">
+                <span class="stat-label">Delivered</span>
+                <span class="stat-value">{{ tracking_summary.delivered }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-map me-2"></i>Tracking Map</span>
+        <span class="text-muted small">{{ map_events|length }} mapped update(s)</span>
+    </div>
+    <div class="card-body">
+        {% if map_events %}
+        <div id="adminTrackingMap" class="admin-tracking-map"></div>
+        {% else %}
+        <div class="admin-tracking-map-empty">
+            <div>
+                <i class="bi bi-geo-alt fs-3 d-block mb-2"></i>
+                Add a location when updating tracking to plot shipments on the map.
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header"><i class="bi bi-funnel me-2"></i>Tracking Queue</div>
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('admin.tracking') }}" class="row g-2 align-items-end mb-3">
+            <div class="col-md-4">
+                <label class="form-label">Search</label>
+                <input type="text" name="q" class="form-control" value="{{ q }}" placeholder="Branch, requester, tracking ID">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Queue</label>
+                <select name="queue" class="form-select">
+                    <option value="">All approved</option>
+                    <option value="not_started" {% if selected_queue == 'not_started' %}selected{% endif %}>Not started</option>
+                    <option value="active" {% if selected_queue == 'active' %}selected{% endif %}>Active</option>
+                    <option value="closed" {% if selected_queue == 'closed' %}selected{% endif %}>Closed</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select">
+                    <option value="">Any tracking status</option>
+                    {% for status in tracking_statuses %}
+                    <option value="{{ status }}" {% if selected_status == status %}selected{% endif %}>{{ status }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary flex-fill"><i class="bi bi-search me-1"></i>Filter</button>
+                <a href="{{ url_for('admin.tracking') }}" class="btn btn-outline-secondary"><i class="bi bi-x-lg"></i></a>
+            </div>
+        </form>
+
+        {% if requests %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Request</th>
+                        <th>Requester</th>
+                        <th>Branch</th>
+                        <th>Tracking</th>
+                        <th style="min-width: 380px;">Admin Action</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for req in requests %}
+                    <tr>
+                        <td>
+                            <div class="fw-semibold">Supply #{{ req.id }}</div>
+                            <div class="text-muted small">{{ req.get_items()|length }} item(s)</div>
+                        </td>
+                        <td>{{ req.requester.full_name }}</td>
+                        <td>{{ req.store_branch }}</td>
+                        <td>
+                            {% if req.tracking_id %}
+                            <div class="tracking-id-badge">{{ req.tracking_id }}</div>
+                            <span class="badge {% if req.tracking_status == 'Delivered' %}bg-success{% elif req.tracking_status == 'Failed Delivery Attempt' or req.tracking_status == 'Return to Sender' %}bg-danger{% elif req.tracking_status == 'Out for Delivery' %}bg-warning text-dark{% else %}bg-primary{% endif %}">
+                                {{ req.tracking_status or 'Tracking Started' }}
+                            </span>
+                            {% else %}
+                            <span class="badge bg-secondary">Not Started</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if req.tracking_id %}
+                            <form method="POST" action="{{ url_for('admin.update_tracking', request_id=req.id) }}" class="row g-2">
+                                <div class="col-md-4">
+                                    <select name="status" class="form-select form-select-sm" required>
+                                        {% for status in tracking_statuses %}
+                                        <option value="{{ status }}" {% if status == req.tracking_status %}selected{% endif %}>{{ status }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <input type="text" name="location" class="form-control form-control-sm" placeholder="Location">
+                                </div>
+                                <div class="col-md-3">
+                                    <input type="text" name="notes" class="form-control form-control-sm" placeholder="Notes">
+                                </div>
+                                <div class="col-md-1">
+                                    <button type="submit" class="btn btn-sm btn-primary" title="Update tracking">
+                                        <i class="bi bi-arrow-up-circle"></i>
+                                    </button>
+                                </div>
+                            </form>
+                            {% else %}
+                            <form method="POST" action="{{ url_for('admin.start_tracking', request_id=req.id) }}">
+                                <button type="submit" class="btn btn-sm btn-primary">
+                                    <i class="bi bi-truck me-1"></i>Start Tracking
+                                </button>
+                            </form>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <a href="{{ url_for('supply.detail', request_id=req.id) }}" class="btn btn-sm btn-outline-warning">View</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon"><i class="bi bi-truck"></i></div>
+            <p>No supply tracking records match your filters.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header"><i class="bi bi-clock-history me-2"></i>Recent Tracking Activity</div>
+    <div class="card-body p-0">
+        {% if latest_events %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Tracking ID</th>
+                        <th>Status</th>
+                        <th>Location</th>
+                        <th>Updated By</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ev in latest_events %}
+                    <tr>
+                        <td class="tracking-id-badge">{{ ev.tracking_id }}</td>
+                        <td>{{ ev.status }}</td>
+                        <td>{{ ev.location or '-' }}</td>
+                        <td>{{ ev.updated_by }}</td>
+                        <td class="text-muted small">{{ ev.created_at.strftime('%b %d, %Y %I:%M %p') if ev.created_at }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-state-icon"><i class="bi bi-inbox"></i></div>
+            <p>No tracking activity yet.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+{% if map_events %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var events = {{ map_events|tojson }};
+    var map = L.map('adminTrackingMap', { zoomControl: true }).setView([11.0, 125.0], 6);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+
+    var bounds = [];
+
+    events.forEach(function(ev) {
+        var color = '#6366f1';
+        if (ev.status === 'Delivered') color = '#16a34a';
+        else if (ev.status === 'Failed Delivery Attempt' || ev.status === 'Return to Sender') color = '#dc2626';
+        else if (ev.status === 'Out for Delivery') color = '#d97706';
+
+        var markerIcon = L.divIcon({
+            className: 'tracking-map-marker',
+            html: '<div style="width:16px;height:16px;background:' + color + ';border:2px solid #fff;border-radius:50%;box-shadow:0 2px 8px rgba(15,23,42,0.35);"></div>',
+            iconSize: [16, 16],
+            iconAnchor: [8, 8],
+        });
+
+        var popup = '<strong>Supply #' + ev.request_id + '</strong><br>' +
+            '<span>' + ev.tracking_id + '</span><br>' +
+            '<strong>' + ev.status + '</strong>';
+        if (ev.location) popup += '<br>' + ev.location;
+        if (ev.time) popup += '<br><small>' + ev.time + '</small>';
+        if (ev.notes) popup += '<br><em>' + ev.notes + '</em>';
+        if (ev.updated_by) popup += '<br><small>Updated by ' + ev.updated_by + '</small>';
+        popup += '<br><a href="' + ev.url + '">View request</a>';
+
+        L.marker([ev.lat, ev.lng], { icon: markerIcon }).addTo(map).bindPopup(popup);
+        bounds.push([ev.lat, ev.lng]);
+    });
+
+    if (bounds.length > 0) {
+        map.fitBounds(bounds, { padding: [40, 40] });
+    }
+});
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+{% block title %}Stores{% endblock %}
+{% block top_title %}Stores{% endblock %}
+{% block content %}
+<header class="management-topbar">
+    <div class="breadcrumb-line">
+        <span>Pages</span>
+        <i class="bi bi-slash"></i>
+        <strong>Stores</strong>
+    </div>
+    <button type="button" class="btn-management-primary" data-bs-toggle="modal" data-bs-target="#newStoreModal">
+        <i class="bi bi-plus-lg"></i>
+        <span>New Store</span>
+    </button>
+</header>
+
+<div class="management-page-shell">
+    <section class="management-heading">
+        <div>
+            <h2>Stores</h2>
+            {% if selected_cluster %}
+            <p>Managing stores under <a class="admin-table-link" href="{{ url_for('admin.clusters') }}">{{ selected_cluster }}</a>.</p>
+            {% else %}
+            <p>Manage all stores in your system.</p>
+            {% endif %}
+        </div>
+        <form class="management-search" method="get" action="{{ url_for('admin.stores') }}">
+            <i class="bi bi-search"></i>
+            {% if selected_cluster %}<input type="hidden" name="cluster" value="{{ selected_cluster }}">{% endif %}
+            <input type="search" name="q" value="{{ q }}" placeholder="Search stores..." aria-label="Search stores">
+        </form>
+    </section>
+
+    {% if selected_cluster or q %}
+    <div class="active-filter-row">
+        {% if selected_cluster %}
+        <span class="filter-pill"><i class="bi bi-diagram-3"></i>{{ selected_cluster }}</span>
+        {% endif %}
+        {% if q %}
+        <span class="filter-pill"><i class="bi bi-search"></i>{{ q }}</span>
+        {% endif %}
+        <a class="admin-table-link" href="{{ url_for('admin.stores') }}">Clear filters</a>
+    </div>
+    {% endif %}
+
+    <div class="stores-table-card">
+        <div class="table-responsive">
+            <table class="table stores-management-table mb-0">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Store Name</th>
+                        <th>Address</th>
+                        <th>Manager</th>
+                        <th>Cluster</th>
+                        <th>Added</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for store in stores %}
+                    <tr>
+                        <td class="store-id">#{{ store.id }}</td>
+                        <td>
+                            <div class="store-name-cell">
+                                <div class="store-icon"><i class="bi bi-shop-window"></i></div>
+                                <a class="store-name-link" href="{{ url_for('admin.users', store=store.name) }}">{{ store.name }}</a>
+                            </div>
+                        </td>
+                        <td class="store-address-cell">{{ store.address }}</td>
+                        <td>
+                            {% if store.manager %}
+                            <div class="store-manager-cell">
+                                <div class="store-manager-avatar">{{ store.manager_initial }}</div>
+                                <span>{{ store.manager }}</span>
+                            </div>
+                            {% else %}
+                            <button type="button" class="assign-manager-button" data-bs-toggle="modal" data-bs-target="#assignManagerModal" data-store-name="{{ store.name }}">
+                                Assign Manager
+                            </button>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if store.cluster_label %}
+                            <a class="store-cluster-pill" href="{{ url_for('admin.stores', cluster=store.cluster_manager) }}">{{ store.cluster_label }}</a>
+                            {% else %}
+                            <span class="store-cluster-pill muted">Unassigned</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ store.date_added.strftime('%b %d, %Y') if store.date_added else '-' }}</td>
+                        <td>
+                            <div class="store-actions">
+                                <button type="button"
+                                        class="btn-store-action btn-store-edit"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#editStoreModal"
+                                        data-store-name="{{ store.name }}"
+                                        data-store-address="{{ store.address }}"
+                                        data-store-manager="{{ store.manager_id or '' }}">
+                                    Edit
+                                </button>
+                                <button type="button" class="btn-store-action btn-store-delete">Delete</button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7">
+                            <div class="management-empty">
+                                <div class="empty-state-icon"><i class="bi bi-shop"></i></div>
+                                <p>No stores found.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="newStoreModal" tabindex="-1" aria-labelledby="newStoreModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content management-modal">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title" id="newStoreModalLabel">Add New Store</h5>
+                    <p class="modal-subtitle">Create a new store location</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="get" action="{{ url_for('admin.stores') }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="storeName" class="form-label">Store Name <span class="text-danger">*</span></label>
+                        <input type="text" id="storeName" name="q" class="form-control" placeholder="Enter store name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="storeAddress" class="form-label">Address <span class="text-danger">*</span></label>
+                        <textarea id="storeAddress" class="form-control" rows="3" placeholder="Enter store address"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="storeManager" class="form-label">Store Manager</label>
+                        <select id="storeManager" class="form-select">
+                            <option value="">Select a manager</option>
+                            {% for manager in managers %}
+                            <option value="{{ manager.id }}">{{ manager.full_name }} ({{ manager.username }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label d-block">Is this store 1 year already?</label>
+                        <div class="d-flex gap-4">
+                            <label class="form-check-label"><input class="form-check-input me-1" type="radio" name="is_one_year_already" value="0" checked> No</label>
+                            <label class="form-check-label"><input class="form-check-input me-1" type="radio" name="is_one_year_already" value="1"> Yes</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Store</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="assignManagerModal" tabindex="-1" aria-labelledby="assignManagerModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content management-modal">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title" id="assignManagerModalLabel">Assign Store Manager</h5>
+                    <p class="modal-subtitle">Assign a manager to <span id="assignStoreName">this store</span></p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="get" action="{{ url_for('admin.stores') }}">
+                <div class="modal-body">
+                    <label for="assignManager" class="form-label">Select Store Manager <span class="text-danger">*</span></label>
+                    <select id="assignManager" class="form-select" required>
+                        <option value="">Select a manager</option>
+                        {% for manager in managers %}
+                        <option value="{{ manager.id }}">{{ manager.full_name }} ({{ manager.username }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-dark">Assign Manager</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editStoreModal" tabindex="-1" aria-labelledby="editStoreModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content management-modal">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title" id="editStoreModalLabel">Edit Store</h5>
+                    <p class="modal-subtitle">Update store details</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="get" action="{{ url_for('admin.stores') }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="editStoreName" class="form-label">Store Name <span class="text-danger">*</span></label>
+                        <input type="text" id="editStoreName" name="q" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editStoreAddress" class="form-label">Address <span class="text-danger">*</span></label>
+                        <textarea id="editStoreAddress" class="form-control" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editStoreManager" class="form-label">Store Manager</label>
+                        <select id="editStoreManager" class="form-select">
+                            <option value="">No manager assigned</option>
+                            {% for manager in all_managers %}
+                            <option value="{{ manager.id }}">{{ manager.full_name }} ({{ manager.username }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label d-block">Is this store 1 year already?</label>
+                        <div class="d-flex gap-4">
+                            <label class="form-check-label"><input class="form-check-input me-1" type="radio" name="edit_is_one_year_already" value="0" checked> No</label>
+                            <label class="form-check-label"><input class="form-check-input me-1" type="radio" name="edit_is_one_year_already" value="1"> Yes</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update Store</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var assignModal = document.getElementById('assignManagerModal');
+  if (assignModal) {
+    assignModal.addEventListener('show.bs.modal', function (event) {
+      var button = event.relatedTarget;
+      var storeName = button ? button.getAttribute('data-store-name') : 'this store';
+      var label = document.getElementById('assignStoreName');
+      if (label) {
+        label.textContent = storeName || 'this store';
+      }
+    });
+  }
+
+  var editModal = document.getElementById('editStoreModal');
+  if (editModal) {
+    editModal.addEventListener('show.bs.modal', function (event) {
+      var button = event.relatedTarget;
+      if (!button) return;
+      document.getElementById('editStoreName').value = button.getAttribute('data-store-name') || '';
+      document.getElementById('editStoreAddress').value = button.getAttribute('data-store-address') || '';
+      document.getElementById('editStoreManager').value = button.getAttribute('data-store-manager') || '';
+    });
+  }
+});
+</script>
+{% endblock %}

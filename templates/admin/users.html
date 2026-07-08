@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Users{% endblock %}
+{% block top_title %}Users{% endblock %}
+{% block content %}
+<div class="admin-page-bar">
+    <div class="breadcrumb-line">
+        <span>Pages</span>
+        <i class="bi bi-slash"></i>
+        <strong>Users</strong>
+    </div>
+    <button type="button" class="btn btn-dark btn-new-user" data-bs-toggle="modal" data-bs-target="#newUserModal">
+        <i class="bi bi-plus-lg"></i>
+        <span>New User</span>
+    </button>
+</div>
+
+<div class="users-page-heading">
+    <div>
+        <h2>Users</h2>
+        {% if store %}
+        <p>Showing users assigned to <a class="admin-table-link" href="{{ url_for('admin.stores') }}">{{ store }}</a>.</p>
+        {% elif cluster %}
+        <p>Showing cluster manager users matching <a class="admin-table-link" href="{{ url_for('admin.clusters') }}">{{ cluster }}</a>.</p>
+        {% else %}
+        <p>Manage all registered users in your system.</p>
+        {% endif %}
+    </div>
+    <form class="users-search" method="get" action="{{ url_for('admin.users') }}">
+        <i class="bi bi-search"></i>
+        {% if store %}<input type="hidden" name="store" value="{{ store }}">{% endif %}
+        {% if cluster %}<input type="hidden" name="cluster" value="{{ cluster }}">{% endif %}
+        <input type="search" name="q" value="{{ q }}" placeholder="Search users..." aria-label="Search users">
+    </form>
+</div>
+
+{% if store or cluster or q %}
+<div class="active-filter-row">
+    {% if store %}
+    <span class="filter-pill"><i class="bi bi-shop"></i>{{ store }}</span>
+    {% endif %}
+    {% if cluster %}
+    <span class="filter-pill"><i class="bi bi-diagram-3"></i>{{ cluster }}</span>
+    {% endif %}
+    {% if q %}
+    <span class="filter-pill"><i class="bi bi-search"></i>{{ q }}</span>
+    {% endif %}
+    <a class="admin-table-link" href="{{ url_for('admin.users') }}">Clear filters</a>
+</div>
+{% endif %}
+
+<div class="users-table-card">
+    <div class="table-responsive">
+        <table class="table users-table mb-0">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>User</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Assigned Store</th>
+                    <th>Joined</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr>
+                    <td class="user-id">#{{ u.id }}</td>
+                    <td>
+                        <div class="user-cell">
+                            <div class="user-initial">{{ (u.full_name or u.username)[:1] | upper }}</div>
+                            <div>
+                                <div class="user-primary">{{ u.username }}</div>
+                                <div class="user-secondary">{{ u.full_name }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>{{ u.email }}</td>
+                    <td>
+                        <span class="role-pill">{{ role_labels.get(u.role, u.role | replace('_', ' ') | title) }}</span>
+                    </td>
+                    <td>
+                        {% if u.store_branch %}
+                        <a class="admin-table-link" href="{{ url_for('admin.stores') }}">{{ u.store_branch }}</a>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td class="joined-date">{{ u.created_at.strftime('%b %d, %Y') if u.created_at else '-' }}</td>
+                    <td>
+                        <div class="user-actions">
+                            <a href="{{ url_for('admin.edit_user', user_id=u.id) }}" class="btn-user-action btn-user-edit">Edit</a>
+                            <form method="POST" action="{{ url_for('admin.delete_user', user_id=u.id) }}" onsubmit="return confirm('Delete this user?');">
+                                <button type="submit" class="btn-user-action btn-user-delete" {% if u.id == current_user.id %}disabled{% endif %}>Delete</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7">
+                        <div class="empty-state">
+                            <div class="empty-state-icon"><i class="bi bi-person"></i></div>
+                            <p>No users found.</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="newUserModal" tabindex="-1" aria-labelledby="newUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('admin.new_user') }}">
+                {{ new_user_form.hidden_tag() }}
+                <div class="modal-header">
+                    <h5 class="modal-title" id="newUserModalLabel">
+                        <i class="bi bi-person-plus me-2"></i>New User
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        {{ new_user_form.full_name.label(class="form-label") }}
+                        {{ new_user_form.full_name(class="form-control", placeholder="Juan Dela Cruz", required=true) }}
+                    </div>
+                    <div class="mb-3">
+                        {{ new_user_form.username.label(class="form-label") }}
+                        {{ new_user_form.username(class="form-control", placeholder="juan.dela.cruz", required=true) }}
+                    </div>
+                    <div class="mb-3">
+                        {{ new_user_form.email.label(class="form-label") }}
+                        {{ new_user_form.email(class="form-control", placeholder="name@example.com", required=true) }}
+                    </div>
+                    <div class="mb-3">
+                        {{ new_user_form.store_branch.label(class="form-label") }}
+                        {{ new_user_form.store_branch(class="form-control", placeholder="Assigned store", required=true) }}
+                    </div>
+                    <div class="mb-3">
+                        {{ new_user_form.role.label(class="form-label") }}
+                        {{ new_user_form.role(class="form-select") }}
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            {{ new_user_form.password.label(class="form-label") }}
+                            {{ new_user_form.password(class="form-control", required=true) }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            {{ new_user_form.confirm_password.label(class="form-label") }}
+                            {{ new_user_form.confirm_password(class="form-control", required=true) }}
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>Create User
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
