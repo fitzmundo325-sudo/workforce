@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}New Work Request - Step 1{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-tools me-2"></i>New Work Request</span>
+                <span class="badge bg-primary fs-6 fw-normal">Step 1 of 2</span>
+            </div>
+            <div class="card-body">
+                <div class="progress mb-4" style="height: 6px;">
+                    <div class="progress-bar bg-primary" style="width: 50%"></div>
+                </div>
+                <form method="POST" action="">
+                    {{ form.hidden_tag() }}
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            {{ form.store_branch.label(class="form-label") }}
+                            {{ form.store_branch(class="form-control" + (" is-invalid" if form.store_branch.errors else ""), placeholder="e.g. Cubao, Makati") }}
+                            {% for error in form.store_branch.errors %}
+                                <div class="invalid-feedback">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.question_type.label(class="form-label") }}
+                            {{ form.question_type(class="form-control" + (" is-invalid" if form.question_type.errors else ""), placeholder="Optional") }}
+                            {% for error in form.question_type.errors %}
+                                <div class="invalid-feedback">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            {{ form.manager_name.label(class="form-label") }} <span class="text-danger">*</span>
+                            {{ form.manager_name(class="form-control" + (" is-invalid" if form.manager_name.errors else "")) }}
+                            {% for error in form.manager_name.errors %}
+                                <div class="invalid-feedback">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.cluster_manager_name.label(class="form-label") }} <span class="text-danger">*</span>
+                            {{ form.cluster_manager_name(class="form-control" + (" is-invalid" if form.cluster_manager_name.errors else "")) }}
+                            {% for error in form.cluster_manager_name.errors %}
+                                <div class="invalid-feedback">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        {{ form.description.label(class="form-label") }} <span class="text-danger">*</span>
+                        {{ form.description(class="form-control" + (" is-invalid" if form.description.errors else ""), rows=4, placeholder="Describe the problem in detail...") }}
+                        {% for error in form.description.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.particular_job.label.text }} <span class="text-danger">*</span></label>
+                        <div class="d-flex gap-3 flex-wrap">
+                            {% for subfield in form.particular_job %}
+                            <div class="form-check">
+                                {{ subfield(class="form-check-input" + (" is-invalid" if form.particular_job.errors else "")) }}
+                                {{ subfield.label(class="form-check-label") }}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% for error in form.particular_job.errors %}
+                            <div class="text-danger small">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.warranty.label.text }} <span class="text-danger">*</span></label>
+                        <div class="d-flex gap-3 flex-wrap">
+                            {% for subfield in form.warranty %}
+                            <div class="form-check">
+                                {{ subfield(class="form-check-input warranty-radio" + (" is-invalid" if form.warranty.errors else "")) }}
+                                {{ subfield.label(class="form-check-label") }}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% for error in form.warranty.errors %}
+                            <div class="text-danger small">{{ error }}</div>
+                        {% endfor %}
+                        <div id="warranty-other-field" class="mt-2 d-none">
+                            {{ form.warranty_other(class="form-control", placeholder="Specify other warranty...") }}
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.department.label.text }} <span class="text-danger">*</span></label>
+                        <div class="d-flex gap-3 flex-wrap">
+                            {% for subfield in form.department %}
+                            <div class="form-check">
+                                {{ subfield(class="form-check-input" + (" is-invalid" if form.department.errors else "")) }}
+                                {{ subfield.label(class="form-check-label") }}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% for error in form.department.errors %}
+                            <div class="text-danger small">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">{{ form.asset_type.label.text }} <span class="text-danger">*</span></label>
+                        <div class="d-flex gap-3 flex-wrap">
+                            {% for subfield in form.asset_type %}
+                            <div class="form-check">
+                                {{ subfield(class="form-check-input" + (" is-invalid" if form.asset_type.errors else "")) }}
+                                {{ subfield.label(class="form-check-label") }}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% for error in form.asset_type.errors %}
+                            <div class="text-danger small">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="mb-3">
+                        {{ form.asset_detail_type.label(class="form-label") }} <span class="text-danger">*</span>
+                        {{ form.asset_detail_type(class="form-select" + (" is-invalid" if form.asset_detail_type.errors else "")) }}
+                        {% for error in form.asset_detail_type.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label">{{ form.urgency.label.text }} <span class="text-danger">*</span></label>
+                        <div class="d-flex gap-3">
+                            {% for subfield in form.urgency %}
+                            <div class="form-check">
+                                {{ subfield(class="form-check-input urgency-radio" + (" is-invalid" if form.urgency.errors else "")) }}
+                                {{ subfield.label(class="form-check-label") }}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% for error in form.urgency.errors %}
+                            <div class="text-danger small">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    <hr class="section-divider">
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline-secondary">Cancel</a>
+                        {{ form.submit(class="btn btn-primary px-4") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const warrantyRadios = document.querySelectorAll('.warranty-radio');
+    const otherField = document.getElementById('warranty-other-field');
+    warrantyRadios.forEach(function(radio) {
+        radio.addEventListener('change', function() {
+            otherField.classList.toggle('d-none', this.value !== 'Other');
+        });
+    });
+});
+</script>
+{% endblock %}

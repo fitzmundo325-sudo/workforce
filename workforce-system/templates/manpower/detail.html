@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Manpower Request #{{ req.id }} - Detail{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-people me-2"></i>Manpower Request #{{ req.id }}</span>
+                <span class="badge bg-{{ 'success' if req.status == 'approved' else 'danger' if req.status == 'rejected' else 'warning' if req.status == 'pending_manager' else 'info' if req.status == 'pending_cm' else 'secondary' }} fs-6 fw-normal">{{ req.status_display() }}</span>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <table class="table table-borderless">
+                            <tr><td class="detail-label" style="width: 140px;">Department/Store</td><td class="detail-value">{{ req.store_branch }}</td></tr>
+                            <tr><td class="detail-label">Manager</td><td class="detail-value">{{ req.manager_name }}</td></tr>
+                            <tr><td class="detail-label">Cluster Manager</td><td class="detail-value">{{ req.cluster_manager_name }}</td></tr>
+                            <tr><td class="detail-label">Name Type</td><td class="detail-value">{{ req.name_type or 'N/A' }}</td></tr>
+                            <tr><td class="detail-label">Date Required</td><td class="detail-value">{{ req.date_required.strftime('%b %d, %Y') if req.date_required }}</td></tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <table class="table table-borderless">
+                            <tr><td class="detail-label" style="width: 140px;">Position Title</td><td class="detail-value">{{ req.position_title }}</td></tr>
+                            <tr><td class="detail-label">Department/Store</td><td class="detail-value">{{ req.department_store }}</td></tr>
+                            <tr><td class="detail-label">Company</td><td class="detail-value">{{ req.company }}</td></tr>
+                            <tr><td class="detail-label">Employees Needed</td><td class="detail-value">{{ req.employees_needed }}</td></tr>
+                            <tr><td class="detail-label">Existing Headcount</td><td class="detail-value">{{ req.existing_headcount }}</td></tr>
+                            <tr><td class="detail-label">Date Created</td><td class="detail-value">{{ req.created_at.strftime('%b %d, %Y %I:%M %p') if req.created_at }}</td></tr>
+                        </table>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <div class="detail-label mb-2">Reason</div>
+                    <div class="description-box">{{ req.reason }}</div>
+                </div>
+                {% if req.reason_detail %}
+                <div class="mb-3">
+                    <div class="detail-label mb-2">Reason For Request</div>
+                    <div class="description-box">{{ req.reason_detail }}</div>
+                </div>
+                {% endif %}
+                {% if req.additional %}
+                <div class="mb-3">
+                    <div class="detail-label mb-2">Additional Tags</div>
+                    <div>
+                        {% for tag in req.additional.split(',') %}
+                        <span class="badge bg-secondary me-1">{{ tag }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                <div class="row mb-4">
+                    <div class="col-md-6 text-center">
+                        <div class="detail-label mb-2">Manager Signature</div>
+                        {% if req.manager_signature %}
+                            <img src="{{ url_for('static', filename='uploads/signatures/' + req.manager_signature) }}"
+                                 class="border rounded" style="max-height: 100px;">
+                        {% else %}
+                            <p class="text-muted small">Not signed</p>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6 text-center">
+                        <div class="detail-label mb-2">Cluster Manager Signature</div>
+                        {% if req.cm_signature %}
+                            <img src="{{ url_for('static', filename='uploads/signatures/' + req.cm_signature) }}"
+                                 class="border rounded" style="max-height: 100px;">
+                        {% else %}
+                            <p class="text-muted small">Not signed</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if approval_logs %}
+                <div class="mb-4">
+                    <div class="detail-label mb-2">Approval History</div>
+                    <div class="approval-timeline">
+                        {% for log in approval_logs %}
+                        <div class="timeline-item {{ log.action }}">
+                            <div class="flex-shrink-0">
+                                {% if log.action == 'approved' %}
+                                    <span class="badge bg-success"><i class="bi bi-check-lg"></i> APPROVED</span>
+                                {% else %}
+                                    <span class="badge bg-danger"><i class="bi bi-x-lg"></i> REJECTED</span>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <strong>{{ log.approver.full_name }}</strong>
+                                <span class="text-muted small">({{ log.created_at.strftime('%b %d, %Y %I:%M %p') if log.created_at }})</span>
+                                {% if log.comments %}
+                                <br><em class="small">{{ log.comments }}</em>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                {% if can_approve %}
+                <div class="review-card mb-4">
+                    <div class="review-header"><i class="bi bi-clipboard-check me-2"></i>Review This Request</div>
+                    <div class="review-body">
+                        <form method="POST" action="{{ url_for('approval.approve') }}" class="d-inline">
+                            <input type="hidden" name="request_type" value="manpower">
+                            <input type="hidden" name="request_id" value="{{ req.id }}">
+                            <div class="mb-2">
+                                <textarea name="comments" class="form-control" rows="2" placeholder="Optional comments..."></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-success me-2" onclick="return confirm('Approve this request?')">
+                                <i class="bi bi-check-circle me-1"></i> Approve
+                            </button>
+                        </form>
+                        <form method="POST" action="{{ url_for('approval.reject') }}" class="d-inline">
+                            <input type="hidden" name="request_type" value="manpower">
+                            <input type="hidden" name="request_id" value="{{ req.id }}">
+                            <button type="submit" class="btn btn-danger" onclick="return confirm('Reject this request?')">
+                                <i class="bi bi-x-circle me-1"></i> Reject
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                {% endif %}
+                <hr class="section-divider">
+                <div class="d-flex justify-content-between">
+                    <a href="{{ url_for('manpower.my_requests') }}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back to My Requests</a>
+                    <a href="{{ url_for('dashboard.index') }}" class="btn btn-success"><i class="bi bi-speedometer2 me-1"></i>Dashboard</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
